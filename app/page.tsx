@@ -3,8 +3,8 @@
 import * as React from "react";
 
 import { CONCEPTS } from "@/lib/concepts";
-import type { MasteryMap } from "@/lib/types";
-import { readMasteryMap, sortByWeakness, writeMasteryMap } from "@/lib/mastery";
+import type { ConceptMasteryRow, MasteryMap } from "@/lib/types";
+import { applyAnswerResult, getRecord, sortByWeakness } from "@/lib/mastery";
 
 import { Button } from "@/components/ui/button";
 import { Dashboard } from "@/components/Dashboard";
@@ -17,44 +17,105 @@ type View = "dashboard" | "review" | "exam" | "results";
 export default function Page() {
   const [view, setView] = React.useState<View>("dashboard");
   const [masteryMap, setMasteryMap] = React.useState<MasteryMap>({});
-  const [quizConceptIds, setQuizConceptIds] = React.useState<string[] | null>(null);
+  const [initialExamRequest, setInitialExamRequest] = React.useState<
+    | null
+    | { examType: "full" | "by-week" | "weak-spots" | "hard-mode" | "not-studied"; weekFilter?: number; conceptIds?: string[] }
+  >(null);
   const [session, setSession] = React.useState<ExamSession | null>(null);
   const [focusConceptId, setFocusConceptId] = React.useState<string | null>(null);
+  const [masteryLoaded, setMasteryLoaded] = React.useState(false);
 
   React.useEffect(() => {
-    setMasteryMap(readMasteryMap());
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/get-mastery");
+        const data = (await res.json()) as unknown;
+        const rows = Array.isArray(data) ? (data as ConceptMasteryRow[]) : [];
+        const map: MasteryMap = {};
+        for (const r of rows) {
+          if (!r || typeof r !== "object") continue;
+          if (typeof r.concept_id !== "string") continue;
+          map[r.concept_id] = {
+            correct: Number((r as ConceptMasteryRow).correct ?? 0),
+            incorrect: Number((r as ConceptMasteryRow).incorrect ?? 0),
+            mastery: (r as ConceptMasteryRow).mastery ?? "not-studied",
+          };
+        }
+        if (!cancelled) setMasteryMap(map);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        if (!cancelled) setMasteryLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
-
-  React.useEffect(() => {
-    writeMasteryMap(masteryMap);
-  }, [masteryMap]);
 
   const go = (v: View) => {
     setView(v);
   };
 
   const startExam = () => {
-    setQuizConceptIds(null);
+    setInitialExamRequest(null);
     setSession(null);
     setFocusConceptId(null);
     go("exam");
   };
 
   const quizConcept = (conceptId: string) => {
-    setQuizConceptIds([conceptId]);
+    setInitialExamRequest({ examType: "full", conceptIds: [conceptId] });
     setSession(null);
     setFocusConceptId(conceptId);
     go("exam");
   };
 
-  const finish = (s: ExamSession) => {
+  const finish = async (s: ExamSession) => {
     setSession(s);
-    setQuizConceptIds(null);
+    setInitialExamRequest(null);
     go("results");
+
+    try {
+      const correctCount = s.answers.filter((a) => a.isCorrect).length;
+      const total = s.answers.length;
+      await fetch("/api/create-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          examType: s.examType,
+          scope: s.scopeLabel,
+          score: correctCount,
+          total,
+        }),
+      });
+    } catch (e) {
+      console.error(e);
+    }
+
+    try {
+      const res = await fetch("/api/get-mastery");
+      const data = (await res.json()) as unknown;
+      const rows = Array.isArray(data) ? (data as ConceptMasteryRow[]) : [];
+      const map: MasteryMap = {};
+      for (const r of rows) {
+        if (!r || typeof r !== "object") continue;
+        if (typeof r.concept_id !== "string") continue;
+        map[r.concept_id] = {
+          correct: Number((r as ConceptMasteryRow).correct ?? 0),
+          incorrect: Number((r as ConceptMasteryRow).incorrect ?? 0),
+          mastery: (r as ConceptMasteryRow).mastery ?? "not-studied",
+        };
+      }
+      setMasteryMap(map);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const applyMastery = (nextMap: MasteryMap) => {
-    setMasteryMap(nextMap);
+  const optimisticAnswer = (conceptId: string, wasCorrect: boolean) => {
+    setMasteryMap((prev) => applyAnswerResult(prev, conceptId, wasCorrect));
   };
 
   return (
@@ -62,7 +123,7 @@ export default function Page() {
       <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <div>
-            <div className="text-xs font-medium text-indigo-700">ADV 281</div>
+            <div className="text-xs font-medium text-[#4E6B63]">ADV 281</div>
             <div className="text-sm font-semibold text-zinc-950">
               Exam 2 Study Website
             </div>
@@ -125,9 +186,10 @@ export default function Page() {
           <PracticeExam
             concepts={CONCEPTS}
             masteryMap={masteryMap}
-            initialConceptIds={quizConceptIds}
+            initialRequest={initialExamRequest}
             onFinished={finish}
             onCancel={() => go("dashboard")}
+            onOptimisticAnswer={optimisticAnswer}
           />
         ) : null}
 
@@ -137,15 +199,13 @@ export default function Page() {
               concepts={CONCEPTS}
               masteryMap={masteryMap}
               session={session}
-              onApplyMastery={applyMastery}
               onReviewConcept={(id) => {
-                setQuizConceptIds(null);
+                setInitialExamRequest(null);
                 setFocusConceptId(id);
                 go("review");
               }}
               onRetakeWeakSpots={() => {
-                const weak = sortByWeakness(CONCEPTS, masteryMap).slice(0, 8).map((c) => c.id);
-                setQuizConceptIds(weak);
+                setInitialExamRequest({ examType: "weak-spots" });
                 setSession(null);
                 setFocusConceptId(null);
                 go("exam");
@@ -162,7 +222,8 @@ export default function Page() {
 
       <footer className="border-t border-zinc-200 py-8">
         <div className="mx-auto max-w-6xl px-4 text-xs text-zinc-500">
-          AI questions are generated on demand. Mastery is stored locally in your browser.
+          ©2026 Sydney Tran. All rights reserved.
+          {!masteryLoaded ? " (Loading mastery…)" : null}
         </div>
       </footer>
     </div>

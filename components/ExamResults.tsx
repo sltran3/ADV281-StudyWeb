@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import type { Concept, MasteryMap } from "@/lib/types";
-import { applyAnswerResult, getRecord } from "@/lib/mastery";
+import { getRecord } from "@/lib/mastery";
 import type { ExamAnswer, ExamSession } from "@/components/PracticeExam";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,7 +22,6 @@ export function ExamResults({
   concepts,
   masteryMap,
   session,
-  onApplyMastery,
   onReviewConcept,
   onRetakeWeakSpots,
   onBackHome,
@@ -30,7 +29,6 @@ export function ExamResults({
   concepts: readonly Concept[];
   masteryMap: MasteryMap;
   session: ExamSession;
-  onApplyMastery: (nextMap: MasteryMap) => void;
   onReviewConcept: (conceptId: string) => void;
   onRetakeWeakSpots: () => void;
   onBackHome: () => void;
@@ -56,20 +54,6 @@ export function ExamResults({
     });
     return [...ids];
   }, [session.answers]);
-
-  const appliedRef = React.useRef(false);
-  React.useEffect(() => {
-    if (appliedRef.current) return;
-    appliedRef.current = true;
-
-    // Apply mastery updates once per session.
-    let next = masteryMap;
-    for (const a of session.answers as ExamAnswer[]) {
-      next = applyAnswerResult(next, a.question.conceptId, a.isCorrect);
-    }
-    onApplyMastery(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   return (
     <div className="space-y-6">

@@ -1,8 +1,6 @@
 "use client";
 
 import type { Concept, MasteryRecord } from "@/lib/types";
-import { FORMULAS_BY_ID } from "@/lib/concepts";
-import { MathRenderer } from "@/components/MathRenderer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,7 +31,6 @@ export function ConceptCard({
   onQuizMe: (conceptId: string) => void;
 }) {
   const badge = masteryBadge(record);
-  const formula = FORMULAS_BY_ID[concept.id];
 
   return (
     <Card id={`concept-${concept.id}`} className="h-full scroll-mt-24">
@@ -47,22 +44,9 @@ export function ConceptCard({
         </div>
       </CardHeader>
       <CardContent
-        className={[
-          "text-sm leading-relaxed text-zinc-700",
-          // KaTeX display math inside cards: spacing + mobile overflow safety
-          "[&_.katex]:text-[0.95em]",
-          "[&_.katex-display]:my-2",
-          "[&_.katex-display]:overflow-x-auto",
-          "[&_.katex-display]:overflow-y-hidden",
-          "[&_.katex-display]:max-w-full",
-        ].join(" ")}
+        className="text-sm leading-relaxed text-zinc-700"
       >
         <p>{concept.summary}</p>
-        {formula ? (
-          <div className="mt-2">
-            <MathRenderer>{formula}</MathRenderer>
-          </div>
-        ) : null}
       </CardContent>
       <CardFooter className="justify-between gap-3">
         <div className="text-xs text-zinc-500">

@@ -2,14 +2,13 @@
 
 import * as React from "react";
 import type { Concept, MasteryMap, Question } from "@/lib/types";
-import { sortByWeakness } from "@/lib/mastery";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { QuestionCard } from "@/components/QuestionCard";
 
-type Scope = "all" | "week-1" | "week-2" | "week-3" | "weak";
+type ExamType = "full" | "by-week" | "weak-spots" | "hard-mode" | "not-studied";
 
 export type ExamAnswer = {
   question: Question;
@@ -18,46 +17,33 @@ export type ExamAnswer = {
 };
 
 export type ExamSession = {
-  config: { count: 5 | 10 | 15; scope: Scope; timed: boolean };
+  examType: ExamType;
+  scopeLabel: string;
+  config: { count: 5 | 10 | 15 | 20; weekFilter?: 1 | 2 | 3 };
   questions: Question[];
   answers: ExamAnswer[];
 };
 
-function buildConceptIds({
-  concepts,
-  masteryMap,
-  scope,
-  weakCount,
-}: {
-  concepts: readonly Concept[];
-  masteryMap: MasteryMap;
-  scope: Scope;
-  weakCount: number;
-}) {
-  if (scope === "all") return concepts.map((c) => c.id);
-  if (scope === "week-1") return concepts.filter((c) => c.week === 1).map((c) => c.id);
-  if (scope === "week-2") return concepts.filter((c) => c.week === 2).map((c) => c.id);
-  if (scope === "week-3") return concepts.filter((c) => c.week === 3).map((c) => c.id);
-  const weak = sortByWeakness(concepts, masteryMap).slice(0, weakCount);
-  return weak.map((c) => c.id);
-}
-
 export function PracticeExam({
   concepts,
-  masteryMap,
-  initialConceptIds,
+  masteryMap: _masteryMap,
+  initialRequest,
   onFinished,
   onCancel,
+  onOptimisticAnswer,
 }: {
   concepts: readonly Concept[];
   masteryMap: MasteryMap;
-  initialConceptIds?: string[] | null;
+  initialRequest?:
+    | null
+    | { examType: ExamType; weekFilter?: number; conceptIds?: string[] };
   onFinished: (session: ExamSession) => void;
   onCancel: () => void;
+  onOptimisticAnswer: (conceptId: string, wasCorrect: boolean) => void;
 }) {
-  const [count, setCount] = React.useState<5 | 10 | 15>(10);
-  const [scope, setScope] = React.useState<Scope>("all");
-  const [timed, setTimed] = React.useState(false);
+  const [count, setCount] = React.useState<5 | 10 | 15 | 20>(10);
+  const [examType, setExamType] = React.useState<ExamType>("full");
+  const [weekFilter, setWeekFilter] = React.useState<1 | 2 | 3>(1);
 
   const [loading, setLoading] = React.useState(false);
   const [questions, setQuestions] = React.useState<Question[] | null>(null);
@@ -66,18 +52,6 @@ export function PracticeExam({
   const [reveal, setReveal] = React.useState(false);
   const [answers, setAnswers] = React.useState<ExamAnswer[]>([]);
 
-  const [secondsLeft, setSecondsLeft] = React.useState<number | null>(null);
-
-  const examCount: 5 | 10 | 15 =
-    initialConceptIds && initialConceptIds.length === 1 ? 5 : count;
-
-  const effectiveTimed = Boolean(timed && !(initialConceptIds && initialConceptIds.length === 1));
-
-  const conceptIds = React.useMemo(() => {
-    if (initialConceptIds && initialConceptIds.length) return initialConceptIds;
-    return buildConceptIds({ concepts, masteryMap, scope, weakCount: 8 });
-  }, [concepts, masteryMap, scope, initialConceptIds]);
-
   const start = React.useCallback(async () => {
     setLoading(true);
     setQuestions(null);
@@ -85,17 +59,28 @@ export function PracticeExam({
     setSelected(null);
     setReveal(false);
     setAnswers([]);
-    setSecondsLeft(effectiveTimed ? 60 : null);
 
     try {
-      const res = await fetch("/api/generate-questions", {
+      const conceptIds = initialRequest?.conceptIds?.length ? initialRequest.conceptIds : undefined;
+      const effectiveExamType = initialRequest?.examType ?? examType;
+      const effectiveWeek =
+        effectiveExamType === "by-week" ? (initialRequest?.weekFilter ?? weekFilter) : undefined;
+      const effectiveCount =
+        conceptIds && conceptIds.length === 1 ? (5 as const) : count;
+
+      const res = await fetch("/api/get-questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conceptIds, count: examCount }),
+        body: JSON.stringify({
+          examType: effectiveExamType,
+          count: effectiveCount,
+          weekFilter: effectiveWeek,
+          conceptIds,
+        }),
       });
 
       if (!res.ok) {
-        throw new Error(`Question generation failed (${res.status})`);
+        throw new Error(`Question fetch failed (${res.status})`);
       }
 
       const data = (await res.json()) as unknown;
@@ -107,39 +92,19 @@ export function PracticeExam({
     } finally {
       setLoading(false);
     }
-  }, [conceptIds, examCount, effectiveTimed]);
+  }, [count, examType, initialRequest, weekFilter]);
 
   React.useEffect(() => {
-    if (!initialConceptIds?.length) return;
+    if (!initialRequest) return;
+    setExamType(initialRequest.examType);
+    if (initialRequest.examType === "by-week" && typeof initialRequest.weekFilter === "number") {
+      const w = initialRequest.weekFilter === 2 ? 2 : initialRequest.weekFilter === 3 ? 3 : 1;
+      setWeekFilter(w);
+    }
+    if (initialRequest.conceptIds && initialRequest.conceptIds.length === 1) setCount(5);
     start();
-  }, [initialConceptIds, start]);
-
-  React.useEffect(() => {
-    if (!effectiveTimed) return;
-    if (!questions || questions.length === 0) return;
-    if (reveal) return;
-
-    setSecondsLeft(60);
-    const id = window.setInterval(() => {
-      setSecondsLeft((s) => {
-        if (typeof s !== "number") return s;
-        if (s <= 1) return 0;
-        return s - 1;
-      });
-    }, 1000);
-
-    return () => window.clearInterval(id);
-  }, [effectiveTimed, activeIdx, questions, reveal]);
-
-  React.useEffect(() => {
-    if (!effectiveTimed) return;
-    if (!questions || questions.length === 0) return;
-    if (reveal) return;
-    if (secondsLeft !== 0) return;
-
-    // Time ran out: reveal as incorrect (or evaluate chosen answer).
-    setReveal(true);
-  }, [effectiveTimed, secondsLeft, questions, reveal]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialRequest]);
 
   const current = questions?.[activeIdx] ?? null;
   const total = questions?.length ?? 0;
@@ -148,6 +113,19 @@ export function PracticeExam({
   const choose = (c: "A" | "B" | "C" | "D") => {
     if (!current) return;
     if (reveal) return;
+    const isCorrect = c === current.correct;
+    onOptimisticAnswer(current.conceptId, isCorrect);
+    fetch("/api/record-answer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        questionId: current.id,
+        conceptId: current.conceptId,
+        wasCorrect: isCorrect,
+        selected: c,
+        sessionId: null,
+      }),
+    }).catch(() => {});
     setSelected(c);
     setReveal(true);
   };
@@ -164,8 +142,31 @@ export function PracticeExam({
 
     const isLast = activeIdx === questions.length - 1;
     if (isLast) {
+      const effectiveExamType = initialRequest?.examType ?? examType;
+      const scopeLabel =
+        effectiveExamType === "by-week"
+          ? `Week ${initialRequest?.weekFilter ?? weekFilter}`
+          : effectiveExamType === "weak-spots"
+            ? "Weak Spots"
+            : effectiveExamType === "hard-mode"
+              ? "Hard Mode"
+              : effectiveExamType === "not-studied"
+                ? "Not Studied Yet"
+                : initialRequest?.conceptIds && initialRequest.conceptIds.length === 1
+                  ? `Concept ${initialRequest.conceptIds[0]}`
+                  : "All";
+
       onFinished({
-        config: { count: examCount, scope, timed: effectiveTimed },
+        examType: effectiveExamType,
+        scopeLabel,
+        config: {
+          count: (initialRequest?.conceptIds && initialRequest.conceptIds.length === 1 ? 5 : count) as
+            | 5
+            | 10
+            | 15
+            | 20,
+          weekFilter: effectiveExamType === "by-week" ? (weekFilter as 1 | 2 | 3) : undefined,
+        },
         questions,
         answers: [
           ...answers,
@@ -178,10 +179,9 @@ export function PracticeExam({
     setActiveIdx((i) => i + 1);
     setSelected(null);
     setReveal(false);
-    setSecondsLeft(effectiveTimed ? 60 : null);
   };
 
-  if (!questions && !loading && !(initialConceptIds?.length)) {
+  if (!questions && !loading && !initialRequest) {
     return (
       <div className="space-y-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -190,7 +190,7 @@ export function PracticeExam({
               Practice Exam
             </h1>
             <p className="mt-1 text-sm text-zinc-600">
-              Configure your quiz, then generate AI questions with immediate feedback.
+              Configure your exam, then pull questions instantly from the question bank.
             </p>
           </div>
           <Button variant="outline" onClick={onCancel}>
@@ -206,12 +206,12 @@ export function PracticeExam({
             <div className="space-y-2">
               <div className="text-sm font-medium text-zinc-900">Number of questions</div>
               <div className="flex gap-2">
-                {[5, 10, 15].map((n) => (
+                {[5, 10, 15, 20].map((n) => (
                   <Button
                     key={n}
                     type="button"
                     variant={count === n ? "default" : "outline"}
-                    onClick={() => setCount(n as 5 | 10 | 15)}
+                    onClick={() => setCount(n as 5 | 10 | 15 | 20)}
                   >
                     {n}
                   </Button>
@@ -220,20 +220,20 @@ export function PracticeExam({
             </div>
 
             <div className="space-y-2">
-              <div className="text-sm font-medium text-zinc-900">Scope</div>
+              <div className="text-sm font-medium text-zinc-900">Exam type</div>
               <div className="flex flex-wrap gap-2">
                 {[
-                  ["all", "All weeks"],
-                  ["week-1", "Week 1"],
-                  ["week-2", "Week 2"],
-                  ["week-3", "Week 3"],
-                  ["weak", "Weak spots"],
+                  ["full", "Full Exam"],
+                  ["by-week", "By Week"],
+                  ["weak-spots", "Weak Spots"],
+                  ["hard-mode", "Hard Mode"],
+                  ["not-studied", "Not Studied Yet"],
                 ].map(([k, label]) => (
                   <Button
                     key={k}
                     type="button"
-                    variant={scope === (k as Scope) ? "default" : "outline"}
-                    onClick={() => setScope(k as Scope)}
+                    variant={examType === (k as ExamType) ? "default" : "outline"}
+                    onClick={() => setExamType(k as ExamType)}
                   >
                     {label}
                   </Button>
@@ -241,25 +241,27 @@ export function PracticeExam({
               </div>
             </div>
 
-            <div className="space-y-2 md:col-span-2">
-              <div className="flex items-center justify-between rounded-lg border border-zinc-200 p-3">
-                <div>
-                  <div className="text-sm font-medium text-zinc-900">Timed mode</div>
-                  <div className="text-xs text-zinc-600">60 seconds per question</div>
+            {examType === "by-week" ? (
+              <div className="space-y-2 md:col-span-2">
+                <div className="text-sm font-medium text-zinc-900">Week filter</div>
+                <div className="flex gap-2">
+                  {([1, 2, 3] as const).map((w) => (
+                    <Button
+                      key={w}
+                      type="button"
+                      variant={weekFilter === w ? "default" : "outline"}
+                      onClick={() => setWeekFilter(w)}
+                    >
+                      Week {w}
+                    </Button>
+                  ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setTimed((v) => !v)}
-                  className="rounded-full border border-zinc-200 bg-white px-3 py-1 text-sm text-zinc-900 hover:bg-zinc-50"
-                >
-                  {timed ? "On" : "Off"}
-                </button>
               </div>
-            </div>
+            ) : null}
           </CardContent>
           <CardFooter className="justify-between">
             <div className="text-xs text-zinc-500">
-              Scope includes {conceptIds.length} concept(s).
+              Questions come from a question bank generated by AI.
             </div>
             <Button onClick={start}>Generate Exam</Button>
           </CardFooter>
@@ -274,10 +276,10 @@ export function PracticeExam({
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-zinc-950">
-              Generating questions…
+              Loading questions…
             </h1>
             <p className="mt-1 text-sm text-zinc-600">
-              Calling Claude to build your exam.
+              Pulling from the question bank.
             </p>
           </div>
           <Button variant="outline" onClick={onCancel} disabled>
@@ -310,10 +312,10 @@ export function PracticeExam({
       <div className="space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Couldn’t generate questions</CardTitle>
+            <CardTitle className="text-base">Couldn’t load questions</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-zinc-600">
-            Check your API key in <span className="font-mono">.env.local</span> and try again.
+            Make sure your Supabase env vars are set and you’ve seeded questions.
           </CardContent>
           <CardFooter className="justify-end gap-2">
             <Button variant="outline" onClick={onCancel}>
@@ -351,8 +353,8 @@ export function PracticeExam({
         onSelect={choose}
         onNext={next}
         isLast={activeIdx === total - 1}
-        timed={effectiveTimed}
-        secondsLeft={secondsLeft}
+        timed={false}
+        secondsLeft={null}
       />
     </div>
   );

@@ -1,36 +1,15 @@
 import type { Concept, MasteryLevel, MasteryMap, MasteryRecord } from "@/lib/types";
 
-const STORAGE_KEY = "adv281_mastery_v1";
-
 export function computeMasteryLevel(record: Pick<MasteryRecord, "correct" | "incorrect">): MasteryLevel {
   const { correct, incorrect } = record;
 
-  if (correct === 0 && incorrect === 0) return "not-studied";
   if (correct >= 3 && correct > incorrect) return "mastered";
-  if (correct < 2 || incorrect > correct) return "needs-review";
-  return "needs-review";
+  if (correct >= 1 || incorrect >= 1) return "needs-review";
+  return "not-studied";
 }
 
 export function getEmptyRecord(): MasteryRecord {
   return { correct: 0, incorrect: 0, mastery: "not-studied" };
-}
-
-export function readMasteryMap(): MasteryMap {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object") return {};
-    return parsed as MasteryMap;
-  } catch {
-    return {};
-  }
-}
-
-export function writeMasteryMap(map: MasteryMap) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
 }
 
 export function getRecord(map: MasteryMap, conceptId: string): MasteryRecord {
@@ -67,23 +46,13 @@ export function getOverallMastery(concepts: readonly Concept[], map: MasteryMap)
 }
 
 export function sortByWeakness(concepts: readonly Concept[], map: MasteryMap): Concept[] {
-  const weaknessScore = (c: Concept) => {
-    const r = getRecord(map, c.id);
-    const masteryRank: Record<MasteryLevel, number> = {
-      "not-studied": 0,
-      "needs-review": 1,
-      "mastered": 2,
-    };
-    // Lower mastery first, then fewer correct, then more incorrect.
-    return [masteryRank[r.mastery], r.correct, -r.incorrect] as const;
-  };
-
   return [...concepts].sort((a, b) => {
-    const [am, ac, ai] = weaknessScore(a);
-    const [bm, bc, bi] = weaknessScore(b);
-    if (am !== bm) return am - bm;
-    if (ac !== bc) return ac - bc;
-    if (ai !== bi) return ai - bi;
+    const ar = getRecord(map, a.id);
+    const br = getRecord(map, b.id);
+    const aRank = ar.mastery === "mastered" ? 2 : ar.mastery === "needs-review" ? 1 : 0;
+    const bRank = br.mastery === "mastered" ? 2 : br.mastery === "needs-review" ? 1 : 0;
+    if (aRank !== bRank) return aRank - bRank;
+    if (ar.correct !== br.correct) return ar.correct - br.correct;
     return a.topic.localeCompare(b.topic);
   });
 }

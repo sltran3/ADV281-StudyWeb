@@ -1,7 +1,7 @@
 "use client";
 
 import type { Concept, MasteryMap } from "@/lib/types";
-import { getOverallMastery, getWeekMastery, sortByWeakness, getRecord } from "@/lib/mastery";
+import { getOverallMastery, getWeekMastery, getRecord } from "@/lib/mastery";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -21,7 +21,10 @@ export function Dashboard({
   onQuizConcept: (conceptId: string) => void;
 }) {
   const overall = getOverallMastery(concepts, masteryMap);
-  const weak = sortByWeakness(concepts, masteryMap).slice(0, 5);
+  const weak = [...concepts]
+    .filter((c) => getRecord(masteryMap, c.id).mastery !== "mastered")
+    .sort((a, b) => getRecord(masteryMap, a.id).correct - getRecord(masteryMap, b.id).correct)
+    .slice(0, 5);
 
   const weeks = [1, 2, 3] as const;
 
@@ -29,7 +32,7 @@ export function Dashboard({
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="text-sm font-medium text-rose-700">ADV 281 • Exam 2</div>
+          <div className="text-sm font-medium text-[#4E6B63]">ADV 281 • Exam 2</div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-950">
             Study Dashboard
           </h1>
