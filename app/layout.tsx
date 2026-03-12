@@ -14,8 +14,11 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ADV 281 Exam 2 — Study Website",
-  description: "AI-powered practice and concept review for ADV 281 Exam 2.",
+  title: "ADV 281 Study",
+  description: "AI generated practice and concept review for ADV 281.",
+  icons: {
+    icon: "/icon.png",
+  },
 };
 
 export default function RootLayout({
