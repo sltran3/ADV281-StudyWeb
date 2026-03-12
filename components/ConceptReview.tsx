@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { Concept, MasteryMap } from "@/lib/types";
+import type { Concept, ExamFilter, MasteryMap } from "@/lib/types";
 import { getRecord } from "@/lib/mastery";
 import { ConceptCard } from "@/components/ConceptCard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,13 +11,19 @@ export function ConceptReview({
   masteryMap,
   onQuizConcept,
   focusConceptId,
+  examFilter,
 }: {
   concepts: readonly Concept[];
   masteryMap: MasteryMap;
   onQuizConcept: (conceptId: string) => void;
   focusConceptId?: string | null;
+  examFilter: ExamFilter;
 }) {
-  const weekConcepts = (week: number) => concepts.filter((c) => c.week === week);
+  const exam2Concepts = concepts.filter((c) => c.exam === 2);
+  const exam3Concepts = concepts.filter((c) => c.exam === 3);
+
+  const weekConcepts = (list: readonly Concept[], week: number) =>
+    list.filter((c) => c.week === week);
 
   const initialTab = React.useMemo(() => {
     if (!focusConceptId) return "week-1";
@@ -38,6 +44,9 @@ export function ConceptReview({
     el.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [focusConceptId]);
 
+  const activeConcepts = examFilter === 2 ? exam2Concepts : exam3Concepts;
+  const isExam3 = examFilter === 3;
+
   return (
     <div className="space-y-4">
       <div>
@@ -54,12 +63,13 @@ export function ConceptReview({
           <TabsTrigger value="week-1">Week 1</TabsTrigger>
           <TabsTrigger value="week-2">Week 2</TabsTrigger>
           <TabsTrigger value="week-3">Week 3</TabsTrigger>
+          {isExam3 ? <TabsTrigger value="week-4">Week 4</TabsTrigger> : null}
         </TabsList>
 
-        {[1, 2, 3].map((w) => (
+        {(isExam3 ? [1, 2, 3, 4] : [1, 2, 3]).map((w) => (
           <TabsContent key={w} value={`week-${w}`}>
             <div className="grid gap-4 md:grid-cols-2">
-              {weekConcepts(w).map((c) => (
+              {weekConcepts(activeConcepts, w).map((c) => (
                 <ConceptCard
                   key={c.id}
                   concept={c}

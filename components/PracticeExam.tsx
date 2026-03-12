@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { Concept, MasteryMap, Question } from "@/lib/types";
+import type { Concept, ExamFilter, MasteryMap, Question } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -19,7 +19,7 @@ export type ExamAnswer = {
 export type ExamSession = {
   examType: ExamType;
   scopeLabel: string;
-  config: { count: 5 | 10 | 15 | 20; weekFilter?: 1 | 2 | 3 };
+  config: { count: 5 | 10 | 15 | 20; weekFilter?: 1 | 2 | 3 | 4 };
   questions: Question[];
   answers: ExamAnswer[];
 };
@@ -28,6 +28,7 @@ export function PracticeExam({
   concepts,
   masteryMap: _masteryMap,
   initialRequest,
+  examFilter,
   onFinished,
   onCancel,
   onOptimisticAnswer,
@@ -37,13 +38,14 @@ export function PracticeExam({
   initialRequest?:
     | null
     | { examType: ExamType; weekFilter?: number; conceptIds?: string[] };
+  examFilter: ExamFilter;
   onFinished: (session: ExamSession) => void;
   onCancel: () => void;
   onOptimisticAnswer: (conceptId: string, wasCorrect: boolean) => void;
 }) {
   const [count, setCount] = React.useState<5 | 10 | 15 | 20>(10);
   const [examType, setExamType] = React.useState<ExamType>("full");
-  const [weekFilter, setWeekFilter] = React.useState<1 | 2 | 3>(1);
+  const [weekFilter, setWeekFilter] = React.useState<1 | 2 | 3 | 4>(1);
 
   const [loading, setLoading] = React.useState(false);
   const [questions, setQuestions] = React.useState<Question[] | null>(null);
@@ -76,6 +78,7 @@ export function PracticeExam({
           count: effectiveCount,
           weekFilter: effectiveWeek,
           conceptIds,
+          examFilter,
         }),
       });
 
@@ -143,7 +146,7 @@ export function PracticeExam({
     const isLast = activeIdx === questions.length - 1;
     if (isLast) {
       const effectiveExamType = initialRequest?.examType ?? examType;
-      const scopeLabel =
+          const scopeLabel =
         effectiveExamType === "by-week"
           ? `Week ${initialRequest?.weekFilter ?? weekFilter}`
           : effectiveExamType === "weak-spots"
@@ -165,7 +168,10 @@ export function PracticeExam({
             | 10
             | 15
             | 20,
-          weekFilter: effectiveExamType === "by-week" ? (weekFilter as 1 | 2 | 3) : undefined,
+          weekFilter:
+            effectiveExamType === "by-week"
+              ? (weekFilter as 1 | 2 | 3 | 4)
+              : undefined,
         },
         questions,
         answers: [
@@ -245,7 +251,10 @@ export function PracticeExam({
               <div className="space-y-2 md:col-span-2">
                 <div className="text-sm font-medium text-zinc-900">Week filter</div>
                 <div className="flex gap-2">
-                  {([1, 2, 3] as const).map((w) => (
+                  {(examFilter === 3
+                    ? ([1, 2, 3, 4] as (1 | 2 | 3 | 4)[])
+                    : ([1, 2, 3] as (1 | 2 | 3)[])
+                  ).map((w) => (
                     <Button
                       key={w}
                       type="button"

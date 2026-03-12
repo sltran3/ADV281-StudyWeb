@@ -3,7 +3,7 @@
 import * as React from "react";
 
 import { CONCEPTS } from "@/lib/concepts";
-import type { ConceptMasteryRow, MasteryMap } from "@/lib/types";
+import type { ConceptMasteryRow, ExamFilter, MasteryMap } from "@/lib/types";
 import { applyAnswerResult, getRecord, sortByWeakness } from "@/lib/mastery";
 
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ type View = "dashboard" | "review" | "exam" | "results";
 export default function Page() {
   const [view, setView] = React.useState<View>("dashboard");
   const [masteryMap, setMasteryMap] = React.useState<MasteryMap>({});
+  const [examFilter, setExamFilter] = React.useState<ExamFilter>(2);
   const [initialExamRequest, setInitialExamRequest] = React.useState<
     | null
     | { examType: "full" | "by-week" | "weak-spots" | "hard-mode" | "not-studied"; weekFilter?: number; conceptIds?: string[] }
@@ -26,10 +27,22 @@ export default function Page() {
   const [masteryLoaded, setMasteryLoaded] = React.useState(false);
 
   React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem("selectedExam");
+    if (stored === "3") setExamFilter(3);
+    else setExamFilter(2);
+  }, []);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("selectedExam", examFilter === 2 ? "2" : "3");
+  }, [examFilter]);
+
+  React.useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/get-mastery");
+        const res = await fetch(`/api/get-mastery?exam=${examFilter}`);
         const data = (await res.json()) as unknown;
         const rows = Array.isArray(data) ? (data as ConceptMasteryRow[]) : [];
         const map: MasteryMap = {};
@@ -52,7 +65,7 @@ export default function Page() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [examFilter]);
 
   const go = (v: View) => {
     setView(v);
@@ -95,7 +108,7 @@ export default function Page() {
     }
 
     try {
-      const res = await fetch("/api/get-mastery");
+      const res = await fetch(`/api/get-mastery?exam=${examFilter}`);
       const data = (await res.json()) as unknown;
       const rows = Array.isArray(data) ? (data as ConceptMasteryRow[]) : [];
       const map: MasteryMap = {};
@@ -125,10 +138,50 @@ export default function Page() {
           <div>
             <div className="text-xs font-medium text-[#4E6B63]">ADV 281</div>
             <div className="text-sm font-semibold text-zinc-950">
-              Exam 2 Study Website
+              {examFilter === 2 ? "Exam 2 Study Website" : "Exam 3 Study Website"}
             </div>
           </div>
-          <nav className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative inline-flex items-center rounded-full bg-zinc-100 p-1 text-xs font-medium text-zinc-600">
+              <div
+                className="absolute inset-y-1 left-1 w-16 rounded-full bg-[#D6E0E8] transition-all duration-200"
+                style={{
+                  transform:
+                    examFilter === 2
+                      ? "translateX(0%)"
+                      : "translateX(100%)",
+                }}
+              />
+              {[
+                { label: "Exam 2", value: 2 as ExamFilter },
+                { label: "Exam 3", value: 3 as ExamFilter },
+              ].map((opt, idx) => {
+                const isActive = examFilter === opt.value;
+                const disabled = view === "exam";
+                return (
+                  <button
+                    key={opt.label}
+                    type="button"
+                    className={`relative z-10 flex w-16 items-center justify-center rounded-full px-2 py-1 transition-colors ${
+                      disabled ? "cursor-not-allowed opacity-60" : ""
+                    }`}
+                    onClick={() => {
+                      if (disabled) return;
+                      setExamFilter(opt.value);
+                    }}
+                  >
+                    <span
+                      className={
+                        isActive ? "text-xs font-semibold text-[#4E6B63]" : "text-xs text-zinc-700"
+                      }
+                    >
+                      {opt.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <nav className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
               variant={view === "dashboard" ? "default" : "outline"}
@@ -159,6 +212,7 @@ export default function Page() {
               Results
             </Button>
           </nav>
+          </div>
         </div>
       </header>
 
@@ -167,6 +221,7 @@ export default function Page() {
           <Dashboard
             concepts={CONCEPTS}
             masteryMap={masteryMap}
+            examFilter={examFilter}
             onStartExam={startExam}
             onReviewAll={() => go("review")}
             onQuizConcept={quizConcept}
@@ -179,6 +234,7 @@ export default function Page() {
             masteryMap={masteryMap}
             onQuizConcept={quizConcept}
             focusConceptId={focusConceptId}
+            examFilter={examFilter}
           />
         ) : null}
 
@@ -187,6 +243,7 @@ export default function Page() {
             concepts={CONCEPTS}
             masteryMap={masteryMap}
             initialRequest={initialExamRequest}
+            examFilter={examFilter}
             onFinished={finish}
             onCancel={() => go("dashboard")}
             onOptimisticAnswer={optimisticAnswer}
@@ -199,6 +256,7 @@ export default function Page() {
               concepts={CONCEPTS}
               masteryMap={masteryMap}
               session={session}
+                examFilter={examFilter}
               onReviewConcept={(id) => {
                 setInitialExamRequest(null);
                 setFocusConceptId(id);

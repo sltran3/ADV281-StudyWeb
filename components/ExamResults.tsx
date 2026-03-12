@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { Concept, MasteryMap } from "@/lib/types";
+import type { Concept, ExamFilter, MasteryMap } from "@/lib/types";
 import { getRecord } from "@/lib/mastery";
 import type { ExamAnswer, ExamSession } from "@/components/PracticeExam";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ export function ExamResults({
   onReviewConcept,
   onRetakeWeakSpots,
   onBackHome,
+  examFilter,
 }: {
   concepts: readonly Concept[];
   masteryMap: MasteryMap;
@@ -32,28 +33,43 @@ export function ExamResults({
   onReviewConcept: (conceptId: string) => void;
   onRetakeWeakSpots: () => void;
   onBackHome: () => void;
+  examFilter: ExamFilter;
 }) {
-  const correctCount = session.answers.filter((a) => a.isCorrect).length;
-  const total = session.answers.length;
+  const filteredAnswers = React.useMemo(
+    () =>
+      session.answers.filter((a) => {
+        const concept = concepts.find((c) => c.id === a.question.conceptId);
+        return concept?.exam === examFilter;
+      }),
+    [session.answers, concepts, examFilter],
+  );
+
+  const correctCount = filteredAnswers.filter((a) => a.isCorrect).length;
+  const total = filteredAnswers.length;
   const scorePct = percent(correctCount, total);
 
   const byWeek = React.useMemo(() => {
-    const weeks = [1, 2, 3] as const;
+    const weeks =
+      examFilter === 3
+        ? ([1, 2, 3, 4] as const)
+        : ([1, 2, 3] as const);
     return weeks.map((w) => {
-      const subset = session.answers.filter((a) => weekForConcept(concepts, a.question.conceptId) === w);
+      const subset = filteredAnswers.filter(
+        (a) => weekForConcept(concepts, a.question.conceptId) === w,
+      );
       const c = subset.filter((a) => a.isCorrect).length;
       const t = subset.length;
       return { week: w, correct: c, total: t, pct: percent(c, t) };
     });
-  }, [session.answers, concepts]);
+  }, [filteredAnswers, concepts, examFilter]);
 
   const wrongConceptIds = React.useMemo(() => {
     const ids = new Set<string>();
-    session.answers.forEach((a) => {
+    filteredAnswers.forEach((a) => {
       if (!a.isCorrect) ids.add(a.question.conceptId);
     });
     return [...ids];
-  }, [session.answers]);
+  }, [filteredAnswers]);
 
   return (
     <div className="space-y-6">
@@ -111,7 +127,7 @@ export function ExamResults({
                 </tr>
               </thead>
               <tbody>
-                {session.answers.map((a, idx) => {
+                {filteredAnswers.map((a, idx) => {
                   const concept = concepts.find((c) => c.id === a.question.conceptId);
                   const r = getRecord(masteryMap, a.question.conceptId);
                   const masteryLabel =

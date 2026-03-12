@@ -1,7 +1,11 @@
 export type MasteryLevel = "not-studied" | "needs-review" | "mastered";
 
+export type ExamId = 2 | 3;
+export type ExamFilter = ExamId;
+
 export interface Concept {
   id: string;
+  exam: ExamId;
   week: number;
   chapter: number;
   topic: string;

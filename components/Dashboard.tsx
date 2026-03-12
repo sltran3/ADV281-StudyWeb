@@ -1,6 +1,6 @@
 "use client";
 
-import type { Concept, MasteryMap } from "@/lib/types";
+import type { Concept, ExamFilter, MasteryMap } from "@/lib/types";
 import { getOverallMastery, getWeekMastery, getRecord } from "@/lib/mastery";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,29 +10,43 @@ import { Badge } from "@/components/ui/badge";
 export function Dashboard({
   concepts,
   masteryMap,
+  examFilter,
   onStartExam,
   onReviewAll,
   onQuizConcept,
 }: {
   concepts: readonly Concept[];
   masteryMap: MasteryMap;
+  examFilter: ExamFilter;
   onStartExam: () => void;
   onReviewAll: () => void;
   onQuizConcept: (conceptId: string) => void;
 }) {
-  const overall = getOverallMastery(concepts, masteryMap);
-  const weak = [...concepts]
+  const exam2Concepts = concepts.filter((c) => c.exam === 2);
+  const exam3Concepts = concepts.filter((c) => c.exam === 3);
+
+  const activeConcepts = examFilter === 2 ? exam2Concepts : exam3Concepts;
+  const overall = getOverallMastery(activeConcepts, masteryMap);
+
+  const weak = [...activeConcepts]
     .filter((c) => getRecord(masteryMap, c.id).mastery !== "mastered")
-    .sort((a, b) => getRecord(masteryMap, a.id).correct - getRecord(masteryMap, b.id).correct)
+    .sort(
+      (a, b) => getRecord(masteryMap, a.id).correct - getRecord(masteryMap, b.id).correct,
+    )
     .slice(0, 5);
 
-  const weeks = [1, 2, 3] as const;
+  const examWeeks = (list: readonly Concept[]) =>
+    Array.from(new Set(list.map((c) => c.week))).sort((a, b) => a - b);
+
+  const weeksForActive = examWeeks(activeConcepts);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="text-sm font-medium text-[#4E6B63]">ADV 281 • Exam 2</div>
+          <div className="text-sm font-medium text-[#4E6B63]">
+            {examFilter === 2 ? "ADV 281 • Exam 2" : "ADV 281 • Exam 3"}
+          </div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-950">
             Study Dashboard
           </h1>
@@ -50,8 +64,8 @@ export function Dashboard({
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        {weeks.map((w) => {
-          const m = getWeekMastery(concepts, masteryMap, w);
+        {weeksForActive.map((w) => {
+          const m = getWeekMastery(activeConcepts, masteryMap, w);
           return (
             <Card key={w}>
               <CardHeader className="space-y-1">
@@ -94,7 +108,8 @@ export function Dashboard({
                   <div>
                     <div className="text-sm font-medium text-zinc-900">{c.topic}</div>
                     <div className="mt-0.5 text-xs text-zinc-600">
-                      Week {c.week} • {mastery} • Correct {r.correct} / Incorrect {r.incorrect}
+                      Week {c.week} • Exam {c.exam} • {mastery} • Correct {r.correct} / Incorrect{" "}
+                      {r.incorrect}
                     </div>
                   </div>
                   <Button size="sm" variant="secondary" onClick={() => onQuizConcept(c.id)}>
