@@ -1,65 +1,170 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import * as React from "react";
+
+import { CONCEPTS } from "@/lib/concepts";
+import type { MasteryMap } from "@/lib/types";
+import { readMasteryMap, sortByWeakness, writeMasteryMap } from "@/lib/mastery";
+
+import { Button } from "@/components/ui/button";
+import { Dashboard } from "@/components/Dashboard";
+import { ConceptReview } from "@/components/ConceptReview";
+import { PracticeExam, type ExamSession } from "@/components/PracticeExam";
+import { ExamResults } from "@/components/ExamResults";
+
+type View = "dashboard" | "review" | "exam" | "results";
+
+export default function Page() {
+  const [view, setView] = React.useState<View>("dashboard");
+  const [masteryMap, setMasteryMap] = React.useState<MasteryMap>({});
+  const [quizConceptIds, setQuizConceptIds] = React.useState<string[] | null>(null);
+  const [session, setSession] = React.useState<ExamSession | null>(null);
+  const [focusConceptId, setFocusConceptId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setMasteryMap(readMasteryMap());
+  }, []);
+
+  React.useEffect(() => {
+    writeMasteryMap(masteryMap);
+  }, [masteryMap]);
+
+  const go = (v: View) => {
+    setView(v);
+  };
+
+  const startExam = () => {
+    setQuizConceptIds(null);
+    setSession(null);
+    setFocusConceptId(null);
+    go("exam");
+  };
+
+  const quizConcept = (conceptId: string) => {
+    setQuizConceptIds([conceptId]);
+    setSession(null);
+    setFocusConceptId(conceptId);
+    go("exam");
+  };
+
+  const finish = (s: ExamSession) => {
+    setSession(s);
+    setQuizConceptIds(null);
+    go("results");
+  };
+
+  const applyMastery = (nextMap: MasteryMap) => {
+    setMasteryMap(nextMap);
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <div className="min-h-screen bg-white">
+      <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/80 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+          <div>
+            <div className="text-xs font-medium text-indigo-700">ADV 281</div>
+            <div className="text-sm font-semibold text-zinc-950">
+              Exam 2 Study Website
+            </div>
+          </div>
+          <nav className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant={view === "dashboard" ? "default" : "outline"}
+              onClick={() => go("dashboard")}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              Home
+            </Button>
+            <Button
+              size="sm"
+              variant={view === "review" ? "default" : "outline"}
+              onClick={() => go("review")}
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+              Concept Review
+            </Button>
+            <Button
+              size="sm"
+              variant={view === "exam" ? "default" : "outline"}
+              onClick={startExam}
+            >
+              Practice Exam
+            </Button>
+            <Button
+              size="sm"
+              variant={view === "results" ? "default" : "outline"}
+              onClick={() => go("results")}
+              disabled={!session}
+            >
+              Results
+            </Button>
+          </nav>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+      </header>
+
+      <main className="mx-auto max-w-6xl px-4 py-6">
+        {view === "dashboard" ? (
+          <Dashboard
+            concepts={CONCEPTS}
+            masteryMap={masteryMap}
+            onStartExam={startExam}
+            onReviewAll={() => go("review")}
+            onQuizConcept={quizConcept}
+          />
+        ) : null}
+
+        {view === "review" ? (
+          <ConceptReview
+            concepts={CONCEPTS}
+            masteryMap={masteryMap}
+            onQuizConcept={quizConcept}
+            focusConceptId={focusConceptId}
+          />
+        ) : null}
+
+        {view === "exam" ? (
+          <PracticeExam
+            concepts={CONCEPTS}
+            masteryMap={masteryMap}
+            initialConceptIds={quizConceptIds}
+            onFinished={finish}
+            onCancel={() => go("dashboard")}
+          />
+        ) : null}
+
+        {view === "results" ? (
+          session ? (
+            <ExamResults
+              concepts={CONCEPTS}
+              masteryMap={masteryMap}
+              session={session}
+              onApplyMastery={applyMastery}
+              onReviewConcept={(id) => {
+                setQuizConceptIds(null);
+                setFocusConceptId(id);
+                go("review");
+              }}
+              onRetakeWeakSpots={() => {
+                const weak = sortByWeakness(CONCEPTS, masteryMap).slice(0, 8).map((c) => c.id);
+                setQuizConceptIds(weak);
+                setSession(null);
+                setFocusConceptId(null);
+                go("exam");
+              }}
+              onBackHome={() => go("dashboard")}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+          ) : (
+            <div className="rounded-xl border border-zinc-200 bg-white p-6 text-sm text-zinc-600">
+              No results yet. Take a practice exam first.
+            </div>
+          )
+        ) : null}
       </main>
+
+      <footer className="border-t border-zinc-200 py-8">
+        <div className="mx-auto max-w-6xl px-4 text-xs text-zinc-500">
+          AI questions are generated on demand. Mastery is stored locally in your browser.
+        </div>
+      </footer>
     </div>
   );
 }
