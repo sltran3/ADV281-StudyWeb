@@ -81,7 +81,7 @@ export function QuestionCard({
               onClick={() => onSelect(c.key)}
               className={cn(
                 "w-full rounded-lg border px-4 py-3 text-left text-sm transition-colors",
-                "border-zinc-200 bg-white hover:bg-zinc-50",
+                "border-[#B5A898] bg-[#EFECE6] hover:bg-[#E8E4DC]",
                 isSelected && !reveal ? "border-indigo-300 bg-indigo-50" : "",
                 isRight ? "border-emerald-300 bg-emerald-50" : "",
                 isWrongSelected ? "border-red-300 bg-red-50" : "",

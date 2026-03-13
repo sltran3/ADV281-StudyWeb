@@ -37,7 +37,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased bg-white text-zinc-950`}
+        className={`${inter.variable} ${jetbrainsMono.variable} antialiased bg-[#F5F3EF] text-zinc-950`}
       >
         {children}
         <Script

@@ -17,7 +17,7 @@ type View = "dashboard" | "review" | "exam" | "results";
 export default function Page() {
   const [view, setView] = React.useState<View>("dashboard");
   const [masteryMap, setMasteryMap] = React.useState<MasteryMap>({});
-  const [examFilter, setExamFilter] = React.useState<ExamFilter>(2);
+  const [examFilter, setExamFilter] = React.useState<ExamFilter>(1);
   const [initialExamRequest, setInitialExamRequest] = React.useState<
     | null
     | { examType: "full" | "by-week" | "weak-spots" | "hard-mode" | "not-studied"; weekFilter?: number; conceptIds?: string[] }
@@ -29,13 +29,18 @@ export default function Page() {
   React.useEffect(() => {
     if (typeof window === "undefined") return;
     const stored = window.localStorage.getItem("selectedExam");
-    if (stored === "3") setExamFilter(3);
-    else setExamFilter(2);
+    if (stored === "1") setExamFilter(1);
+    else if (stored === "2") setExamFilter(2);
+    else if (stored === "3") setExamFilter(3);
+    else if (stored === "all") setExamFilter(null);
+    else setExamFilter(1);
   }, []);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem("selectedExam", examFilter === 2 ? "2" : "3");
+    const value =
+      examFilter === null ? "all" : examFilter === 1 ? "1" : examFilter === 2 ? "2" : "3";
+    window.localStorage.setItem("selectedExam", value);
   }, [examFilter]);
 
   React.useEffect(() => {
@@ -132,30 +137,35 @@ export default function Page() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/80 backdrop-blur">
+    <div className="min-h-screen bg-[#F5F3EF]">
+      <header className="sticky top-0 z-40 border-b border-zinc-200 bg-[#F5F3EF]/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <div>
             <div className="text-xs font-medium text-[#4E6B63]">ADV 281</div>
             <div className="text-sm font-semibold text-zinc-950">
-              {examFilter === 2 ? "Exam 2 Study Website" : "Exam 3 Study Website"}
+              {examFilter === 1
+                ? "Exam 1"
+                : examFilter === 2
+                  ? "Exam 2"
+                  : examFilter === 3
+                    ? "Exam 3"
+                    : "Exam 1–3"}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <div className="relative inline-flex items-center rounded-full bg-zinc-100 p-1 text-xs font-medium text-zinc-600">
+            <div className="relative inline-flex items-center rounded-full bg-[#EFECE6] p-1 text-xs font-medium">
               <div
-                className="absolute inset-y-1 left-1 w-16 rounded-full bg-[#D6E0E8] transition-all duration-200"
+                className="absolute inset-y-1 left-1 w-16 rounded-full bg-[#D6E0E8] shadow-sm transition-all duration-200"
                 style={{
-                  transform:
-                    examFilter === 2
-                      ? "translateX(0%)"
-                      : "translateX(100%)",
+                  transform: `translateX(${(examFilter === null ? 3 : examFilter - 1) * 64}px)`,
                 }}
               />
               {[
+                { label: "Exam 1", value: 1 as ExamFilter },
                 { label: "Exam 2", value: 2 as ExamFilter },
                 { label: "Exam 3", value: 3 as ExamFilter },
-              ].map((opt, idx) => {
+                { label: "All", value: null as ExamFilter },
+              ].map((opt) => {
                 const isActive = examFilter === opt.value;
                 const disabled = view === "exam";
                 return (
@@ -271,7 +281,7 @@ export default function Page() {
               onBackHome={() => go("dashboard")}
             />
           ) : (
-            <div className="rounded-xl border border-zinc-200 bg-white p-6 text-sm text-zinc-600">
+            <div className="rounded-xl border border-zinc-200 bg-[#EFECE6] p-6 text-sm text-zinc-600">
               No results yet. Take a practice exam first.
             </div>
           )

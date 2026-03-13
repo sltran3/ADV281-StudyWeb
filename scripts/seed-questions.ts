@@ -76,10 +76,30 @@ async function main() {
     "be plausible but clearly wrong to someone who truly understands \n" +
     "the concept.";
 
+  const seedExamEnv = process.env.SEED_EXAM;
+  const seedExam =
+    seedExamEnv == null || seedExamEnv === ""
+      ? null
+      : Number.isNaN(Number(seedExamEnv))
+        ? null
+        : Number(seedExamEnv);
+
+  const seedOffsetEnv = process.env.SEED_OFFSET;
+  const seedOffset =
+    seedOffsetEnv == null || seedOffsetEnv === ""
+      ? 0
+      : Number.isNaN(Number(seedOffsetEnv))
+        ? 0
+        : Number(seedOffsetEnv);
+
+  const conceptsToSeed = (
+    seedExam == null ? CONCEPTS : CONCEPTS.filter((c) => c.exam === seedExam)
+  ).slice(seedOffset);
+
   let totalInserted = 0;
 
-  for (let i = 0; i < CONCEPTS.length; i++) {
-    const concept = CONCEPTS[i]!;
+  for (let i = 0; i < conceptsToSeed.length; i++) {
+    const concept = conceptsToSeed[i]!;
 
     const user =
       "Generate 9 multiple choice questions for this concept at \n" +
@@ -113,7 +133,7 @@ async function main() {
 
     const msg = await client.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 2000,
+      max_tokens: 4096,
       system,
       messages: [{ role: "user", content: user }],
     });

@@ -37,10 +37,12 @@ export function ExamResults({
 }) {
   const filteredAnswers = React.useMemo(
     () =>
-      session.answers.filter((a) => {
-        const concept = concepts.find((c) => c.id === a.question.conceptId);
-        return concept?.exam === examFilter;
-      }),
+      examFilter == null
+        ? session.answers
+        : session.answers.filter((a) => {
+            const concept = concepts.find((c) => c.id === a.question.conceptId);
+            return concept?.exam === examFilter;
+          }),
     [session.answers, concepts, examFilter],
   );
 
@@ -186,7 +188,7 @@ export function ExamResults({
                   key={id}
                   type="button"
                   onClick={() => onReviewConcept(id)}
-                  className="rounded-lg border border-zinc-200 bg-white p-3 text-left hover:bg-zinc-50"
+                  className="rounded-lg border border-zinc-200 bg-[#EFECE6] p-3 text-left hover:bg-[#E8E4DC]"
                 >
                   <div className="text-sm font-medium text-zinc-900">
                     {c?.topic ?? id}

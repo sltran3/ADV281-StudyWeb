@@ -22,10 +22,18 @@ export function Dashboard({
   onReviewAll: () => void;
   onQuizConcept: (conceptId: string) => void;
 }) {
+  const exam1Concepts = concepts.filter((c) => c.exam === 1);
   const exam2Concepts = concepts.filter((c) => c.exam === 2);
   const exam3Concepts = concepts.filter((c) => c.exam === 3);
 
-  const activeConcepts = examFilter === 2 ? exam2Concepts : exam3Concepts;
+  const activeConcepts =
+    examFilter === 1
+      ? exam1Concepts
+      : examFilter === 2
+        ? exam2Concepts
+        : examFilter === 3
+          ? exam3Concepts
+          : concepts;
   const overall = getOverallMastery(activeConcepts, masteryMap);
 
   const weak = [...activeConcepts]
@@ -45,7 +53,13 @@ export function Dashboard({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="text-sm font-medium text-[#4E6B63]">
-            {examFilter === 2 ? "ADV 281 • Exam 2" : "ADV 281 • Exam 3"}
+            {examFilter === 1
+              ? "ADV 281 • Exam 1"
+              : examFilter === 2
+                ? "ADV 281 • Exam 2"
+                : examFilter === 3
+                  ? "ADV 281 • Exam 3"
+                  : "ADV 281 • All Exams"}
           </div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-950">
             Study Dashboard
@@ -103,7 +117,7 @@ export function Dashboard({
               return (
                 <div
                   key={c.id}
-                  className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-2 rounded-lg border border-[#B5A898] bg-[#EFECE6] p-3 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div>
                     <div className="text-sm font-medium text-zinc-900">{c.topic}</div>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { CONCEPTS } from "@/lib/concepts";
 import { getSupabasePublic } from "@/lib/supabase";
 
 export const runtime = "nodejs";
@@ -12,6 +13,7 @@ type Body = {
   count: number;
   weekFilter?: number;
   conceptIds?: string[];
+  examFilter?: number | null;
 };
 
 type DbQuestion = {
@@ -59,6 +61,10 @@ export async function POST(req: Request) {
     const count = Number(body.count);
     const weekFilter = body.weekFilter == null ? null : Number(body.weekFilter);
     const conceptIds = Array.isArray(body.conceptIds) ? body.conceptIds.filter((x) => typeof x === "string") : null;
+    const examFilter =
+      body.examFilter == null || Number.isNaN(Number(body.examFilter))
+        ? null
+        : Number(body.examFilter);
 
     if (
       (examType !== "full" &&
@@ -72,13 +78,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
     }
 
-    const baseQuery = () =>
-      getSupabasePublic()
+    const examConceptIds =
+      examFilter != null
+        ? CONCEPTS.filter((c) => c.exam === examFilter).map((c) => c.id)
+        : null;
+
+    const baseQuery = () => {
+      let q = getSupabasePublic()
         .from("questions")
         .select(
           "id,concept_id,week,difficulty,question,choice_a,choice_b,choice_c,choice_d,correct,explanation,times_answered,times_correct",
         )
         .eq("is_active", true);
+      if (examConceptIds != null) {
+        q = q.in("concept_id", examConceptIds);
+      }
+      return q;
+    };
 
     const applyConceptFilter = <T extends ReturnType<typeof baseQuery>>(q: T) =>
       conceptIds && conceptIds.length ? q.in("concept_id", conceptIds) : q;

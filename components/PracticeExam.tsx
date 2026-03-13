@@ -233,7 +233,7 @@ export function PracticeExam({
                   ["by-week", "By Week"],
                   ["weak-spots", "Weak Spots"],
                   ["hard-mode", "Hard Mode"],
-                  ["not-studied", "Not Studied Yet"],
+
                 ].map(([k, label]) => (
                   <Button
                     key={k}
@@ -251,9 +251,10 @@ export function PracticeExam({
               <div className="space-y-2 md:col-span-2">
                 <div className="text-sm font-medium text-zinc-900">Week filter</div>
                 <div className="flex gap-2">
-                  {(examFilter === 3
-                    ? ([1, 2, 3, 4] as (1 | 2 | 3 | 4)[])
-                    : ([1, 2, 3] as (1 | 2 | 3)[])
+                  {(
+                    examFilter === 1 || examFilter === 3
+                      ? ([1, 2, 3, 4] as (1 | 2 | 3 | 4)[])
+                      : ([1, 2, 3] as (1 | 2 | 3)[])
                   ).map((w) => (
                     <Button
                       key={w}

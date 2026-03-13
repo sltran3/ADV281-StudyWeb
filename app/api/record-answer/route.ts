@@ -13,8 +13,10 @@ type Body = {
   sessionId?: string | null;
 };
 
-function computeMastery(correct: number, incorrect: number) {
-  if (correct >= 3 && correct > incorrect) return "mastered" as const;
+function computeMastery(correct: number, incorrect: number, streak: number) {
+  const total = correct + incorrect;
+  const ratio = total > 0 ? correct / total : 0;
+  if (streak >= 3 && ratio >= 0.7) return "mastered" as const;
   if (correct >= 1 || incorrect >= 1) return "needs-review" as const;
   return "not-studied" as const;
 }
@@ -66,6 +68,17 @@ export async function POST(req: Request) {
       }
     }
 
+    // Check if this question was previously answered incorrectly
+    const lastAnswer = await getSupabasePublic()
+      .from("exam_answers")
+      .select("was_correct")
+      .eq("question_id", questionId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const prevAnswerWasWrong = lastAnswer.data?.was_correct === false;
+
     // 3) Upsert concept_mastery: increment correct/incorrect, recompute mastery, update last_seen.
     const prev = await getSupabasePublic()
       .from("concept_mastery")
@@ -76,9 +89,26 @@ export async function POST(req: Request) {
 
     const prevCorrect = prev.data?.correct ?? 0;
     const prevIncorrect = prev.data?.incorrect ?? 0;
-    const correct = prevCorrect + (wasCorrect ? 1 : 0);
-    const incorrect = prevIncorrect + (wasCorrect ? 0 : 1);
-    const mastery = computeMastery(correct, incorrect);
+
+    // If previously wrong and now correct: move from incorrect → correct
+    const correct = wasCorrect && prevAnswerWasWrong
+      ? prevCorrect + 1
+      : prevCorrect + (wasCorrect ? 1 : 0);
+    const incorrect = wasCorrect && prevAnswerWasWrong
+      ? Math.max(0, prevIncorrect - 1)
+      : prevIncorrect + (wasCorrect ? 0 : 1);
+
+    // Check last 3 answers for this concept to determine streak
+    const recentRes = await getSupabasePublic()
+      .from("exam_answers")
+      .select("was_correct")
+      .eq("concept_id", conceptId)
+      .order("created_at", { ascending: false })
+      .limit(3);
+    const recent = recentRes.data ?? [];
+    const streak = recent.length >= 3 && recent.every((r) => r.was_correct) ? 3 : 0;
+
+    const mastery = computeMastery(correct, incorrect, streak);
     const now = new Date().toISOString();
 
     const up = await getSupabasePublic()

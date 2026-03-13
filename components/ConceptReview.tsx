@@ -19,6 +19,7 @@ export function ConceptReview({
   focusConceptId?: string | null;
   examFilter: ExamFilter;
 }) {
+  const exam1Concepts = concepts.filter((c) => c.exam === 1);
   const exam2Concepts = concepts.filter((c) => c.exam === 2);
   const exam3Concepts = concepts.filter((c) => c.exam === 3);
 
@@ -44,7 +45,14 @@ export function ConceptReview({
     el.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [focusConceptId]);
 
-  const activeConcepts = examFilter === 2 ? exam2Concepts : exam3Concepts;
+  const activeConcepts =
+    examFilter === 1
+      ? exam1Concepts
+      : examFilter === 2
+        ? exam2Concepts
+        : examFilter === 3
+          ? exam3Concepts
+          : concepts;
   const isExam3 = examFilter === 3;
 
   return (
@@ -54,7 +62,7 @@ export function ConceptReview({
           Concept Review
         </h1>
         <p className="mt-1 text-sm text-zinc-600">
-          Browse by week. Use “Quiz me on this” to jump into a single-concept quiz.
+          Review concepts by week & test your understanding with concept quizzes. 
         </p>
       </div>
 
