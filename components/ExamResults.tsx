@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import type { Concept, ExamFilter, MasteryMap } from "@/lib/types";
-import { getRecord } from "@/lib/mastery";
+import { computeMasteryLevel, getRecord } from "@/lib/mastery";
 import type { ExamAnswer, ExamSession } from "@/components/PracticeExam";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,6 +73,19 @@ export function ExamResults({
     return [...ids];
   }, [filteredAnswers]);
 
+  function masteryFromAnswers(conceptId: string) {
+    const conceptAnswers: ExamAnswer[] = filteredAnswers.filter(
+      (a) => a.question.conceptId === conceptId,
+    );
+    const correct = conceptAnswers.filter((a) => a.isCorrect).length;
+    const incorrect = conceptAnswers.length - correct;
+    // Prefer live session answers if we have any, otherwise fall back to stored mastery.
+    if (conceptAnswers.length > 0) {
+      return computeMasteryLevel({ correct, incorrect });
+    }
+    return getRecord(masteryMap, conceptId).mastery;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -84,9 +97,9 @@ export function ExamResults({
             Score: {correctCount}/{total} ({scorePct}%)
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Button variant="outline" onClick={onBackHome}>
-            Back to Dashboard
+            Review Concepts
           </Button>
           <Button onClick={onRetakeWeakSpots}>Retake exam on weak spots</Button>
         </div>
@@ -125,17 +138,16 @@ export function ExamResults({
                   <th className="py-2 pr-4">Week</th>
                   <th className="py-2 pr-4">Result</th>
                   <th className="py-2 pr-4">Mastery</th>
-                  <th className="py-2 pr-4"></th>
                 </tr>
               </thead>
               <tbody>
                 {filteredAnswers.map((a, idx) => {
                   const concept = concepts.find((c) => c.id === a.question.conceptId);
-                  const r = getRecord(masteryMap, a.question.conceptId);
+                  const level = masteryFromAnswers(a.question.conceptId);
                   const masteryLabel =
-                    r.mastery === "mastered"
+                    level === "mastered"
                       ? "🟢 Mastered"
-                      : r.mastery === "needs-review"
+                      : level === "needs-review"
                         ? "🟡 Needs review"
                         : "🔴 Not studied";
                   return (
@@ -153,15 +165,6 @@ export function ExamResults({
                         </Badge>
                       </td>
                       <td className="py-3 pr-4 text-zinc-700">{masteryLabel}</td>
-                      <td className="py-3 pr-0 text-right">
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => onReviewConcept(a.question.conceptId)}
-                        >
-                          Review
-                        </Button>
-                      </td>
                     </tr>
                   );
                 })}

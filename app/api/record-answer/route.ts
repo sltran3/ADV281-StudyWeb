@@ -13,11 +13,10 @@ type Body = {
   sessionId?: string | null;
 };
 
-function computeMastery(correct: number, incorrect: number, streak: number) {
+function computeMastery(correct: number, incorrect: number) {
   const total = correct + incorrect;
-  const ratio = total > 0 ? correct / total : 0;
-  if (streak >= 3 && ratio >= 0.7) return "mastered" as const;
-  if (correct >= 1 || incorrect >= 1) return "needs-review" as const;
+  if (total > 0 && correct / total >= 0.7) return "mastered" as const;
+  if (correct >= 1) return "needs-review" as const;
   return "not-studied" as const;
 }
 
@@ -51,6 +50,19 @@ export async function POST(req: Request) {
       .eq("id", questionId);
     if (qUp.error) return NextResponse.json({ error: qUp.error.message }, { status: 500 });
 
+    // Check if this question was previously answered incorrectly
+    // We intentionally read *before* inserting the new answer so we look at history
+    // prior to this attempt.
+    const lastAnswer = await getSupabasePublic()
+      .from("exam_answers")
+      .select("was_correct")
+      .eq("question_id", questionId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const prevAnswerWasWrong = lastAnswer.data?.was_correct === false;
+
     // Track answer row if we can.
     if (selected) {
       const ans = await getSupabasePublic().from("exam_answers").insert([
@@ -68,19 +80,9 @@ export async function POST(req: Request) {
       }
     }
 
-    // Check if this question was previously answered incorrectly
-    const lastAnswer = await getSupabasePublic()
-      .from("exam_answers")
-      .select("was_correct")
-      .eq("question_id", questionId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const prevAnswerWasWrong = lastAnswer.data?.was_correct === false;
-
     // 3) Upsert concept_mastery: increment correct/incorrect, recompute mastery, update last_seen.
-    const prev = await getSupabasePublic()
+    // Use the admin client for concept_mastery so RLS never prevents mastery updates.
+    const prev = await getSupabaseAdmin()
       .from("concept_mastery")
       .select("*")
       .eq("concept_id", conceptId)
@@ -98,20 +100,10 @@ export async function POST(req: Request) {
       ? Math.max(0, prevIncorrect - 1)
       : prevIncorrect + (wasCorrect ? 0 : 1);
 
-    // Check last 3 answers for this concept to determine streak
-    const recentRes = await getSupabasePublic()
-      .from("exam_answers")
-      .select("was_correct")
-      .eq("concept_id", conceptId)
-      .order("created_at", { ascending: false })
-      .limit(3);
-    const recent = recentRes.data ?? [];
-    const streak = recent.length >= 3 && recent.every((r) => r.was_correct) ? 3 : 0;
-
-    const mastery = computeMastery(correct, incorrect, streak);
+  const mastery = computeMastery(correct, incorrect);
     const now = new Date().toISOString();
 
-    const up = await getSupabasePublic()
+    const up = await getSupabaseAdmin()
       .from("concept_mastery")
       .upsert(
         [

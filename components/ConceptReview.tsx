@@ -67,12 +67,14 @@ export function ConceptReview({
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="w-full justify-start">
-          <TabsTrigger value="week-1">Week 1</TabsTrigger>
-          <TabsTrigger value="week-2">Week 2</TabsTrigger>
-          <TabsTrigger value="week-3">Week 3</TabsTrigger>
-          {isExam3 ? <TabsTrigger value="week-4">Week 4</TabsTrigger> : null}
-        </TabsList>
+        <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0 sm:pb-0">
+          <TabsList className="w-max justify-start sm:w-full">
+            <TabsTrigger value="week-1">Week 1</TabsTrigger>
+            <TabsTrigger value="week-2">Week 2</TabsTrigger>
+            <TabsTrigger value="week-3">Week 3</TabsTrigger>
+            {isExam3 ? <TabsTrigger value="week-4">Week 4</TabsTrigger> : null}
+          </TabsList>
+        </div>
 
         {(isExam3 ? [1, 2, 3, 4] : [1, 2, 3]).map((w) => (
           <TabsContent key={w} value={`week-${w}`}>

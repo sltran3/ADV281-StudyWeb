@@ -3,8 +3,9 @@ import type { Concept, MasteryLevel, MasteryMap, MasteryRecord } from "@/lib/typ
 export function computeMasteryLevel(record: Pick<MasteryRecord, "correct" | "incorrect">): MasteryLevel {
   const { correct, incorrect } = record;
 
-  if (correct >= 3 && correct > incorrect) return "mastered";
-  if (correct >= 1 || incorrect >= 1) return "needs-review";
+  const total = correct + incorrect;
+  if (total > 0 && correct / total >= 0.7) return "mastered";
+  if (correct >= 1) return "needs-review";
   return "not-studied";
 }
 

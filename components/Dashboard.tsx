@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { RotateCcw } from "lucide-react";
 
 export function Dashboard({
   concepts,
@@ -14,6 +15,7 @@ export function Dashboard({
   onStartExam,
   onReviewAll,
   onQuizConcept,
+  onResetMastery,
 }: {
   concepts: readonly Concept[];
   masteryMap: MasteryMap;
@@ -21,6 +23,7 @@ export function Dashboard({
   onStartExam: () => void;
   onReviewAll: () => void;
   onQuizConcept: (conceptId: string) => void;
+  onResetMastery: () => void;
 }) {
   const exam1Concepts = concepts.filter((c) => c.exam === 1);
   const exam2Concepts = concepts.filter((c) => c.exam === 2);
@@ -64,9 +67,20 @@ export function Dashboard({
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-950">
             Study Dashboard
           </h1>
-          <div className="mt-1 text-sm text-zinc-600">
-            {overall.mastered} / {overall.total} concepts mastered •{" "}
-            {Math.round(overall.percent)}%
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-zinc-600">
+            <span>
+              {overall.mastered} / {overall.total} concepts mastered •{" "}
+              {Math.round(overall.percent)}%
+            </span>
+            <button
+              type="button"
+              onClick={onResetMastery}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-700 shadow-sm transition-colors hover:bg-zinc-50"
+              title="Reset mastery for this exam"
+              aria-label="Reset mastery for this exam"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">

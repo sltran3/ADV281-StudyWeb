@@ -211,7 +211,7 @@ export function PracticeExam({
           <CardContent className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <div className="text-sm font-medium text-zinc-900">Number of questions</div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {[5, 10, 15, 20].map((n) => (
                   <Button
                     key={n}
@@ -250,7 +250,7 @@ export function PracticeExam({
             {examType === "by-week" ? (
               <div className="space-y-2 md:col-span-2">
                 <div className="text-sm font-medium text-zinc-900">Week filter</div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {(
                     examFilter === 1 || examFilter === 3
                       ? ([1, 2, 3, 4] as (1 | 2 | 3 | 4)[])

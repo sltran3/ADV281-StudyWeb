@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { CONCEPTS } from "@/lib/concepts";
-import { getSupabasePublic } from "@/lib/supabase";
+import { getSupabaseAdmin } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,7 +12,8 @@ export async function GET(req: Request) {
   const exam =
     examParam === null || examParam === "all" ? null : Number.isNaN(Number(examParam)) ? null : Number(examParam);
 
-  const base = getSupabasePublic().from("concept_mastery").select("*");
+  // Use the admin client so RLS never prevents reading mastery rows needed for the dashboard.
+  const base = getSupabaseAdmin().from("concept_mastery").select("*");
   const examConceptIds =
     exam != null ? CONCEPTS.filter((c) => c.exam === exam).map((c) => c.id) : null;
   const query = examConceptIds != null ? base.in("concept_id", examConceptIds) : base;

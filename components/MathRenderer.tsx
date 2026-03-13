@@ -53,6 +53,6 @@ export function MathRenderer({
   }, [rawText]);
 
   // Intentionally render no children: the DOM is managed by the effect above.
-  return <div ref={ref} className={className} />;
+  return <div ref={ref} className={`overflow-x-auto ${className ?? ""}`} />;
 }
 
