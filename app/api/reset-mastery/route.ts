@@ -50,10 +50,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: resetMastery.error.message }, { status: 500 });
     }
 
+    // Supabase `update`/`delete` without `select()` often have `data` typed as `never`.
+    // We defensively coerce to `unknown[]` before reading `.length` to keep types happy.
+    const conceptMasteryDeleted = Array.isArray(resetMastery.data)
+      ? (resetMastery.data as unknown[]).length
+      : 0;
+    const examAnswersDeleted = Array.isArray(delAnswers.data)
+      ? (delAnswers.data as unknown[]).length
+      : 0;
+
     return NextResponse.json({
       deleted: {
-        concept_mastery: Array.isArray(resetMastery.data) ? resetMastery.data.length : 0,
-        exam_answers: Array.isArray(delAnswers.data) ? delAnswers.data.length : 0,
+        concept_mastery: conceptMasteryDeleted,
+        exam_answers: examAnswersDeleted,
       },
       exam,
     });
